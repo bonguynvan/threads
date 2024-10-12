@@ -28,7 +28,6 @@
 
   watchEffect(() => {
     if(user.value) {
-      console.log(user.value);
       return navigateTo('/')
     }
   })

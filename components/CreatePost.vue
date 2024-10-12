@@ -10,9 +10,9 @@
       <div id="Post" class="z-40 bottom-0 max-h-[100vh-200px] w-full px-3 max-w-[500px] mx-auto">
         <div class="py-2 w-full">
           <div class="flex items-center">
-            <div class="flex items-center text-white">
-              <img src="https://picsum.photos/id/225/30" alt="" class="rounded-full h-[35px]">
-              <div class="font-semibold ml-2 text-[18px]">Van Bo Dev</div>
+            <div v-if="user" class="flex items-center text-white">
+              <img :src="user.identities[0].identity_data.avatar_url" alt="" class="rounded-full h-[35px]">
+              <div class="font-semibold ml-2 text-[18px]">{{ user.identities[0].identity_data.full_name }}</div>
             </div>
           </div>
           <div class="relative flex items-center w-full">
@@ -58,7 +58,7 @@
         :class="isLoading ? 'text-gray-600' : 'text-blue-600'"
         class="fixed bottom-0 font-bold text-lg w-full p-2 bg-black inline-block float-right p-4 border-t border-t-gray-700"
       >
-        <div v-if="!isLoading">Post</div>
+        <div v-if="!isLoading" @click="createPost()">Post</div>
         <div v-else class="flex items-center gap-2 justify-center">
           <Icon name="eos-icons:bubble-loading" size="25"/>
           Please wait...
@@ -73,7 +73,7 @@ import {v4 as uuidv4} from 'uuid'
 import {useUserStore} from "../stores/user.js";
 
 const userStore = useUserStore()
-// const runtimeConfig = useRuntimeConfig()
+const runtimeConfig = useRuntimeConfig()
 let text = ref(null)
 let isLoading = ref(false)
 
@@ -98,7 +98,48 @@ const onChange = () => {
   fileDisplay.value = URL.createObjectURL(file.value.files[0])
   fileData.value = file.value.files[0]
 }
-// const client = useSupabaseClient()
-// const use = useSupabaseUser()
+const client = useSupabaseClient()
+const user = useSupabaseUser()
 
+const createPost = async () => {
+  let dataOut = null
+  let errorOut = null
+
+  isLoading.value = true
+
+  if(fileData.value) {
+    const {data, error} = await client.storage.from('threads-clone-file').upload(`${uuidv4()}.jpg`, fileData.value)
+    dataOut = data
+    errorOut = error
+  }
+  if(errorOut) {
+    console.log('errorOut',errorOut)
+    return errorOut
+  }
+  let pic = ''
+  if(dataOut) {
+    pic = dataOut ? dataOut.path : ''
+  }
+  try {
+    await useFetch('/api/create-post/', {
+      method: 'POST',
+      body: {
+        userId: user.value.identities[0].user_id,
+        name: user.value.identities[0].identity_data.full_name,
+        image: user.value.identities[0].identity_data.avatar_url,
+        text: text.value,
+        picture: pic
+      }
+    })
+
+    await userStore.getAllPosts()
+    userStore.isMenuOverlay = false
+    clearData()
+    isLoading.value = false
+  } catch (e) {
+    console.log(e);
+    isLoading.value = false
+  }
+
+}
 </script>
